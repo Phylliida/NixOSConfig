@@ -8,14 +8,16 @@
   imports =
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
+      ./customPackages/flatpack.nix
     ];
 
+
+  virtualisation.docker.enable = true; 
+  networking.firewall.allowedTCPPorts = [ 5001 8096 ];  
+    
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-
-  hardware.bluetooth.enable = true;
-  hardware.bluetooth.powerOnBoot = true;
 
   networking.hostName = "nixos"; # Define your hostname.
   # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
@@ -50,14 +52,24 @@
   services.xserver.enable = true;
 
   # Enable the KDE Plasma Desktop Environment.
-  # services.displayManager.sddm.enable = true;
-  # services.desktopManager.plasma6.enable = true;
+  services.displayManager.sddm.enable = true;
+  services.desktopManager.plasma6.enable = true;
 
   # Configure keymap in X11
   services.xserver.xkb = {
     layout = "us";
     variant = "";
   };
+
+  services.flatpak.enable = true;
+  systemd.services.flatpak-repo = {
+    wantedBy = [ "multi-user.target" ];
+    path = [ pkgs.flatpak ];
+    script = ''
+      flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+    '';
+  };
+
 
   # Enable CUPS to print documents.
   services.printing.enable = true;
@@ -82,9 +94,9 @@
   # services.xserver.libinput.enable = true;
 
   # Define a user account. Don't forget to set a password with ‘passwd’.
-  users.users.yams = {
+  users.users.bepis = {
     isNormalUser = true;
-    description = "yams";
+    description = "bepis";
     extraGroups = [ "networkmanager" "wheel" ];
     packages = with pkgs; [
       kdePackages.kate
@@ -94,13 +106,12 @@
 
   # Enable automatic login for the user.
   services.displayManager.autoLogin.enable = true;
-  services.displayManager.autoLogin.user = "yams";
+  services.displayManager.autoLogin.user = "bepis";
 
-  services.gnome.gnome-keyring.enable = true;
-
-  programs.sway = {
-	enable = true;
-	wrapperFeatures.gtk = true;
+  services.jellyfin = {
+    enable = true;
+    openFirewall = true;
+    user = "bepis";
   };
 
   # Install firefox.
@@ -109,25 +120,142 @@
   # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
 
-  # List packages installed in system profile. To search, run:
+   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
-     wget
-     pkgs.micro
-     pkgs.waybar
-     pkgs.wofi
-     pkgs.swaybg
-     pkgs.krita
-     retroarch-full
-     grim
-     slurp
-     wl-clipboard
-     mako
   #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
-  #  wget
-  ];
+    wget
+    git
+    mesa
+    gitRepo
+    gnupg
+    autoconf
+    curl
+    docker
+    docker-client
+    openscad
+    (pkgs.callPackage /etc/nixos/customPackages/koboldcpp.nix {
+	cublasSupport = true;
+	vulkanSupport = false;
+    })
 
-  
+
+    prismlauncher
+	procps
+	gnumake
+	m4
+	gperf
+	unzip
+	cudaPackages.cudatoolkit
+	cudaPackages.nccl
+	cudaPackages.cudnn
+	cudaPackages.cutensor
+	cudaPackages.libcublas
+	cudaPackages.cuda_nvcc
+	cudaPackages.libcusparse
+	cudaPackages.libcusolver
+	cudaPackages.cuda_cudart
+	cudaPackages.cuda_opencl
+        cudaPackages.libcublas
+        cudaPackages.cuda_nvcc
+        cudaPackages.cuda_cudart
+        cudaPackages.cuda_cccl
+
+	clblast
+	libGLU libGL
+	xorg.libXi
+	xorg.libXmu
+	freeglut
+	xorg.libXext
+	xorg.libX11
+	xorg.libXv
+	xorg.libXrandr
+	zlib
+	ncurses5
+	stdenv.cc
+	binutils
+    micro
+    ferium
+    tetris
+    jellyfin
+    jellyfin-web
+    jellyfin-ffmpeg
+    discord
+    telegram-desktop
+    fsearch
+    jackett
+    zerotierone
+    libgcc
+    cmake
+    llama-cpp
+    nix-ld
+    uv
+	
+	
+    
+	# python
+	python312
+	python312Packages.torch
+	python312Packages.transformers
+	python312Packages.diffusers
+	 
+    # vulkan
+    glfw
+    freetype
+    vulkan-headers
+    vulkan-loader
+    vulkan-validation-layers
+    vulkan-tools
+    shaderc
+    renderdoc
+    tracy
+    vulkan-tools-lunarg
+    
+
+    xorg.libX11
+    xorg.libXau
+    xorg.libXdmcp
+    xorg.libxcb
+    xorg.libXext
+    xorg.libXrender
+    xorg.libXrandr
+    xorg.libXfixes
+    xorg.libXi
+    xorg.libXcursor
+    xorg.libXinerama
+    xorg.libXdamage
+    xorg.libxcb
+
+
+
+   # (pkgs.stdenvNoCC.mkDerivation {
+   #   pname = "koboldcppold";
+   #   version = "1.98.1";
+   #   src = pkgs.fetchurl {
+   #     url = "https://github.com/LostRuins/koboldcpp/releases/download/v1.98.1/koboldcpp-linux-x64";
+   #     sha256 = "sha256:9980b8c3447497939745991e1589bce07131fbf45952799c0b16158f9818fb70";
+   #   };
+   #   nativeBuildInputs = [ pkgs.autoPatchelfHook ];
+   #   buildInputs = with pkgs; [
+   #     glibc zlib zstd openssl libGL vulkan-loader
+   #     cudatoolkit cudaPackages.cudnn
+   #     alsa-lib pulseaudio xorg.libxcb
+   #     xorg.libX11 xorg.libXau xorg.libXdmcp xorg.libxcb xorg.libXext xorg.libXrender xorg.libXrandr xorg.libXfixes xorg.libXi xorg.libXcursor xorg.libXinerama xorg.libXdamage
+   #   ];
+   #   dontUnpack = true;
+   #   installPhase = ''
+#mkdir -p $out/bin
+#cp $src $out/bin/koboldcpp
+#chmod +x $out/bin/koboldcpp
+#      '';
+#      meta = with pkgs.lib; {
+#        description = "KoboldCpp precompiled binary (Linux x64, CUDA build)";
+#        homepage = "https://github.com/LostRuins/koboldcpp/releases/tag/v1.98.1";
+#        license = licenses.gpl3Plus;
+#        platforms = [ "x86_64-linux" ];
+#      };
+#    })
+];
 
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
@@ -154,15 +282,130 @@
   # this value at the release version of the first install of this system.
   # Before changing this value read the documentation for this option
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
-  system.stateVersion = "25.05"; # Did you read the comment?
 
 
 
-  programs.tmux = {
-     enable=true;
-     clock24=true;
-     extraConfig = '''';
+  services.zerotierone = {
+    enable = true;
+    joinNetworks = [
+     "1c33c1ced0f8cfb0"
+    ];
   };
 
+    virtualisation.oci-containers = {
+    backend = "docker";
+
+    containers."bambustudio" = {
+      image      = "lscr.io/linuxserver/bambustudio:02.02.02";
+      autoStart  = true;                           # equivalent to “docker-compose up -d”
+
+      environment = {
+        PUID       = "1000";
+        PGID       = "1000";
+        TZ         = "Etc/UTC";
+        DARK_MODE  = "true";
+      };
+
+      volumes = [ "/home/bepis/Documents/bambustuff:/config" ];
+
+      ports = [
+        "3000:3000"
+        "3001:3001"
+      ];
+
+      # Options that have no dedicated field in the module
+      extraOptions = [
+        "--shm-size" "1g"            # shm_size
+      ];
+    };
+  };
+
+  # cuda
+  
+  # vr
+
+  services.monado = {
+    enable = true;
+    defaultRuntime = true; # Register as default OpenXR runtime
+  };
+   
+  systemd.user.services.monado.environment = {
+    STEAMVR_LH_ENABLE = "1";
+    XRT_COMPOSITOR_COMPUTE = "1";
+    WMR_HANDTRACKING = "0";
+  };
+
+
+  services.wivrn = {
+    enable = true;
+    openFirewall = true;
+
+    # Write information to /etc/xdg/openxr/1/active_runtime.json, VR applications
+    # will automatically read this and work with WiVRn (Note: This does not currently
+    # apply for games run in Valve's Proton)
+    defaultRuntime = false;
+
+    # Run WiVRn as a systemd service on startup
+    autoStart = true;
+
+    # Config for WiVRn (https://github.com/WiVRn/WiVRn/blob/master/docs/configuration.md)
+    config = {
+      enable = true;
+      json = {
+        # 1.0x foveation scaling
+        scale = 1.0;
+        # 100 Mb/s
+        bitrate = 100000000;
+        encoders = [
+          {
+            encoder = "vaapi";
+            codec = "h265";
+            # 1.0 x 1.0 scaling
+            width = 1.0;
+            height = 1.0;
+            offset_x = 0.0;
+            offset_y = 0.0;
+          }
+        ];
+      };
+    };
+  };
+
+  programs.envision = {
+    enable = true;
+    openFirewall = true; # This is set true by default
+  };
+
+  programs.steam = {
+    enable = true;
+    remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
+    dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
+    gamescopeSession.enable = true;
+    localNetworkGameTransfers.openFirewall = true; # Open ports in the firewall for Steam Local Network Game Transfers 
+    extraCompatPackages = [ pkgs.proton-ge-bin ];
+  };
+
+  programs.appimage.enable = true;
+  programs.appimage.binfmt = true;
+
+  hardware.graphics = {
+      enable = true;
+      enable32Bit = true;
+  };
+
+  hardware.nvidia = {
+      modesetting.enable = true;
+      powerManagement.enable = false;
+      powerManagement.finegrained = false;
+      open = true;
+      nvidiaSettings = true;
+      package = config.boot.kernelPackages.nvidiaPackages.stable;
+  };
+
+   
+  xdg.portal.enable = true;
+  xdg.portal.extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+  
+  services.xserver.videoDrivers = [ "nvidia" ];
 
 }
