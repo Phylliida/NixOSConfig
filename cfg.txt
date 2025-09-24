@@ -176,6 +176,7 @@
 	binutils
     micro
     ferium
+    xclip
     tetris
     jellyfin
     jellyfin-web
@@ -225,6 +226,15 @@
     xorg.libXinerama
     xorg.libXdamage
     xorg.libxcb
+
+   # vr
+   v4l-utils 
+   xrizer
+   motoc
+   libsurvive
+   #wayvr-dashboard
+   oscavmgr
+   monado
 
 
 
@@ -324,57 +334,32 @@
   
   # vr
 
-  services.monado = {
-    enable = true;
-    defaultRuntime = true; # Register as default OpenXR runtime
-  };
-   
-  systemd.user.services.monado.environment = {
+   services.monado = {
+      enable = true;
+      defaultRuntime = true; # Register as default OpenXR runtime
+   };
+
+
+nixpkgs.overlays = let
+  nixpkgs-xr = import (builtins.fetchTarball
+    "https://github.com/nix-community/nixpkgs-xr/archive/main.tar.gz");
+  in [
+    # Your monado override (keeps OpenCV off)
+    (final: prev: {
+      monado = prev.monado.overrideAttrs (old: {
+        buildInputs = builtins.filter (x: x != prev.opencv) old.buildInputs;
+        cmakeFlags = (old.cmakeFlags or []) ++ [ "-DBUILD_WITH_OPENCV=OFF" ];
+      });
+    })
+
+    # XR overlay
+    nixpkgs-xr.overlays.default
+  ];
+   systemd.user.services.monado.environment = {
     STEAMVR_LH_ENABLE = "1";
     XRT_COMPOSITOR_COMPUTE = "1";
-    WMR_HANDTRACKING = "0";
-  };
+   };
 
-
-  services.wivrn = {
-    enable = true;
-    openFirewall = true;
-
-    # Write information to /etc/xdg/openxr/1/active_runtime.json, VR applications
-    # will automatically read this and work with WiVRn (Note: This does not currently
-    # apply for games run in Valve's Proton)
-    defaultRuntime = false;
-
-    # Run WiVRn as a systemd service on startup
-    autoStart = true;
-
-    # Config for WiVRn (https://github.com/WiVRn/WiVRn/blob/master/docs/configuration.md)
-    config = {
-      enable = true;
-      json = {
-        # 1.0x foveation scaling
-        scale = 1.0;
-        # 100 Mb/s
-        bitrate = 100000000;
-        encoders = [
-          {
-            encoder = "vaapi";
-            codec = "h265";
-            # 1.0 x 1.0 scaling
-            width = 1.0;
-            height = 1.0;
-            offset_x = 0.0;
-            offset_y = 0.0;
-          }
-        ];
-      };
-    };
-  };
-
-  programs.envision = {
-    enable = true;
-    openFirewall = true; # This is set true by default
-  };
 
   programs.steam = {
     enable = true;
@@ -399,7 +384,13 @@
       powerManagement.finegrained = false;
       open = true;
       nvidiaSettings = true;
-      package = config.boot.kernelPackages.nvidiaPackages.stable;
+     package = config.boot.kernelPackages.nvidiaPackages.production.overrideAttrs {
+        version = "580.76.05";
+        src = pkgs.fetchurl {
+          url = "https://us.download.nvidia.com/XFree86/Linux-x86_64/580.76.05/NVIDIA-Linux-x86_64-580.76.05.run";
+          sha256 = "1zcpbp859h5whym0r54a3xrkqdl7z3py1hg8n8hv0c89nqvfd6r1";
+        };
+      };
   };
 
    
@@ -407,5 +398,8 @@
   xdg.portal.extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
   
   services.xserver.videoDrivers = [ "nvidia" ];
+  
+
+
 
 }
