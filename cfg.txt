@@ -4,12 +4,103 @@
 
 { config, pkgs, ... }:
 
+let
+  nixpkgs-xr = import (builtins.fetchTarball "https://github.com/nix-community/nixpkgs-xr/archive/main.tar.gz");
+  pinned = config.boot.kernelPackages.nvidiaPackages.mkDriver {
+    version = "580.82.09";
+
+
+    sha256_64bit = "sha256-Puz4MtouFeDgmsNMKdLHoDgDGC+QRXh6NVysvltWlbc=";
+    sha256_aarch64 = "sha256-6tHiAci9iDTKqKrDIjObeFdtrlEwjxOHJpHfX4GMEGQ=";
+    openSha256 = "sha256-YB+mQD+oEDIIDa+e8KX1/qOlQvZMNKFrI5z3CoVKUjs=";
+    settingsSha256 = "sha256-um53cr2Xo90VhZM1bM2CH4q9b/1W2YOqUcvXPV6uw2s=";
+    persistencedSha256 = "sha256-lbYSa97aZ+k0CISoSxOMLyyMX//Zg2Raym6BC4COipU=";
+  };
+in
 {
   imports =
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
       ./customPackages/flatpack.nix
     ];
+
+  nixpkgs.overlays = [
+    # 1) Apply XR overlay first
+    nixpkgs-xr.overlays.default
+
+    # 2) Then override monado from that result
+    (final: prev: {
+      monado = prev.monado.overrideAttrs (old: let
+        # Pin to a specific commit you want:
+    #    srcGit = prev.fetchFromGitLab {
+    #      domain = "gitlab.freedesktop.org";
+    #      owner  = "monado";
+    #      repo   = "monado";
+    #      rev    = "eaa3797ec8b67911429b2f05789c63fa7bed7906"; # <- commit SHA
+    #      hash   = "sha256:rVP8jK4iDXdd0DqrUxCz7EWDqm2xqcdor0+BWoVuxos=";                        # <- content hash
+    #    };
+      in {
+    #    # keep XR overlay’s settings, plus our tweaks
+    #    version = "git-${builtins.substring 0 8 srcGit.rev}";
+    #    src = srcGit;
+
+        # likely not needed on newer commits
+        #patches = [ ];
+
+        #postPatch = (old.postPatch or "") + ''
+        #  patchShebangs .
+        #  chmod -R u+w src/xrt/state_trackers/steamvr_drv/steamvr_bindings || true
+        #  chmod -R u+w src/xrt/state_trackers/oxr/oxr_bindings || true
+        # '';
+
+        # keep OpenCV off
+        buildInputs = builtins.filter (x: x != prev.opencv4) old.buildInputs;
+        cmakeFlags  = (old.cmakeFlags or []) ++ [ "-DBUILD_WITH_OPENCV=OFF" ];
+      });
+
+      #nvidiaPackages = prev.nvidiaPackages // {
+      #mkDriver = args:
+      #  let base = prev.nvidiaPackages.mkDriver args;
+      #  in base // {
+      #    # Patch the build inputs of the "settings" subpackage
+      #    settings = base.settings.overrideAttrs (old: {
+      #      nativeBuildInputs = (old.nativeBuildInputs or []) ++ [ final.pkg-config ];
+      #      buildInputs       = (old.buildInputs       or []) ++ [ final.gtk3 ];
+      #    });
+      #  };
+      #};
+
+
+     })
+
+
+
+  ];
+
+  
+
+
+  boot.kernelParams = [ "nvidia-drm.modeset=1" ];
+    environment.sessionVariables.VK_ICD_FILENAMES = "/run/opengl-driver/share/vulkan/icd.d/nvidia_icd.x86_64.json";
+
+   nix = {
+    package = pkgs.nixVersions.latest;     # optional but recommended
+    settings.experimental-features = [ "nix-command" "flakes" ];
+  };
+  
+  # you'll need to run once without any flakes used, then run again with them once flakes are enabled
+  nix.extraOptions = ''
+    experimental-features = nix-command flakes
+  '';
+
+
+    boot.kernelPatches = [
+    {
+      name = "bigscreen-beyond-quirks";
+      patch = /etc/nixos/patches/bsb.patch; # path to the file you saved
+    }
+  ];
+  
 
 
   virtualisation.docker.enable = true; 
@@ -125,15 +216,19 @@
   environment.systemPackages = with pkgs; [
   #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
     wget
+    pkg-config
+    gtk3
     git
     mesa
     gitRepo
     gnupg
     autoconf
     curl
+    vscode
     docker
     docker-client
     openscad
+    nodejs_24
     (pkgs.callPackage /etc/nixos/customPackages/koboldcpp.nix {
 	cublasSupport = true;
 	vulkanSupport = false;
@@ -232,10 +327,62 @@
    xrizer
    motoc
    libsurvive
+   openhmd
+    monado-vulkan-layers
+
+
    #wayvr-dashboard
    oscavmgr
-   monado
+   gst_all_1.gst-plugins-base
+   gst_all_1.gstreamer
+   hidapi
+   libbsd
+   libdrm
+   libffi
+   libGL
+   libjpeg
+   librealsense
+   libsurvive
+   libunwind
+   libusb1
+   libuv
+   libuvc
+   libv4l
+   onnxruntime
+   opencv4
+   openhmd
+   openvr
+   orc
+   pcre2
+   pkg-config
+   python3
+   SDL2
+   shaderc
+   tracy
+   udev
+   vulkan-headers
+   vulkan-loader
+   wayland
+   wayland-protocols
+   wayland-scanner
+   zlib
+   zstd
 
+   # vr 2
+
+   eepyxr
+   envision-unwrapped
+   index_camera_passthrough
+   opencomposite
+   opencomposite-vendored
+   proton-ge-rtsp-bin
+   vapor
+   wayvr-dashboard
+   wivrn
+   wlx-overlay-s
+   xrizer
+
+   #(builtins.getFlake "gitlab:monado/monado?host=gitlab.freedesktop.org").packages.${pkgs.system}.default
 
 
    # (pkgs.stdenvNoCC.mkDerivation {
@@ -334,31 +481,36 @@
   
   # vr
 
-   services.monado = {
-      enable = true;
-      defaultRuntime = true; # Register as default OpenXR runtime
-   };
 
 
-nixpkgs.overlays = let
-  nixpkgs-xr = import (builtins.fetchTarball
-    "https://github.com/nix-community/nixpkgs-xr/archive/main.tar.gz");
-  in [
-    # Your monado override (keeps OpenCV off)
-    (final: prev: {
-      monado = prev.monado.overrideAttrs (old: {
-        buildInputs = builtins.filter (x: x != prev.opencv) old.buildInputs;
-        cmakeFlags = (old.cmakeFlags or []) ++ [ "-DBUILD_WITH_OPENCV=OFF" ];
-      });
-    })
+  hardware.nvidia = {
+    
+    modesetting.enable = true;
+    powerManagement.enable = false;
+    powerManagement.finegrained = false;
+    open = true;
+    nvidiaSettings = true;
+    package = pinned;
+  };
+    services.monado = {
+    enable = true;
+    defaultRuntime = true;
+    highPriority = true;
+  };
 
-    # XR overlay
-    nixpkgs-xr.overlays.default
-  ];
    systemd.user.services.monado.environment = {
     STEAMVR_LH_ENABLE = "1";
     XRT_COMPOSITOR_COMPUTE = "1";
-   };
+    # NVIDIA wired-HMD mitigation
+    XRT_COMPOSITOR_USE_PRESENT_WAIT = "1";
+    U_PACING_COMP_TIME_FRACTION_PERCENT = "90";
+    # U_PACING_COMP_MIN_TIME_MS = "10";   # optional
+  };  
+
+
+
+
+
 
 
   programs.steam = {
@@ -376,22 +528,20 @@ nixpkgs.overlays = let
   hardware.graphics = {
       enable = true;
       enable32Bit = true;
+
+
+      extraPackages = with pkgs; [                                                                   
+        nvidia-vaapi-driver                                                                          
+        #intel-media-driver                                                                          
+        #intel-vaapi-driver                                                                          
+        libvdpau-va-gl                                                                               
+      ];      
   };
 
-  hardware.nvidia = {
-      modesetting.enable = true;
-      powerManagement.enable = false;
-      powerManagement.finegrained = false;
-      open = true;
-      nvidiaSettings = true;
-     package = config.boot.kernelPackages.nvidiaPackages.production.overrideAttrs {
-        version = "580.76.05";
-        src = pkgs.fetchurl {
-          url = "https://us.download.nvidia.com/XFree86/Linux-x86_64/580.76.05/NVIDIA-Linux-x86_64-580.76.05.run";
-          sha256 = "1zcpbp859h5whym0r54a3xrkqdl7z3py1hg8n8hv0c89nqvfd6r1";
-        };
-      };
-  };
+
+
+
+
 
    
   xdg.portal.enable = true;
