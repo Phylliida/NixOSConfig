@@ -18,11 +18,14 @@ let
   };
 in
 {
+
   imports =
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
       ./customPackages/flatpack.nix
     ];
+
+
 
   nixpkgs.overlays = [
     # 1) Apply XR overlay first
@@ -79,6 +82,10 @@ in
 
   
 
+    services.udev.extraRules = ''
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="35bd", ATTRS{idProduct}=="0101", MODE="0666"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="35bd", ATTRS{idProduct}=="0202", MODE="0666"
+  '';
 
   boot.kernelParams = [ "nvidia-drm.modeset=1" ];
     environment.sessionVariables.VK_ICD_FILENAMES = "/run/opengl-driver/share/vulkan/icd.d/nvidia_icd.x86_64.json";
@@ -328,7 +335,7 @@ in
    motoc
    libsurvive
    openhmd
-    monado-vulkan-layers
+   monado-vulkan-layers
 
 
    #wayvr-dashboard
@@ -371,11 +378,10 @@ in
    # vr 2
 
    eepyxr
-   envision-unwrapped
    index_camera_passthrough
    opencomposite
    opencomposite-vendored
-   proton-ge-rtsp-bin
+   #proton-ge-rtsp-bin
    vapor
    wayvr-dashboard
    wivrn
@@ -492,22 +498,6 @@ in
     nvidiaSettings = true;
     package = pinned;
   };
-    services.monado = {
-    enable = true;
-    defaultRuntime = true;
-    highPriority = true;
-  };
-
-   systemd.user.services.monado.environment = {
-    STEAMVR_LH_ENABLE = "1";
-    XRT_COMPOSITOR_COMPUTE = "1";
-    # NVIDIA wired-HMD mitigation
-    XRT_COMPOSITOR_USE_PRESENT_WAIT = "1";
-    U_PACING_COMP_TIME_FRACTION_PERCENT = "90";
-    # U_PACING_COMP_MIN_TIME_MS = "10";   # optional
-  };  
-
-
 
 
 
@@ -549,6 +539,37 @@ in
   
   services.xserver.videoDrivers = [ "nvidia" ];
   
+ 
+  services.monado = {
+    enable = true;
+    defaultRuntime = true;
+    highPriority = true;
+  };
+
+  systemd.user.services.monado.environment = {
+    STEAMVR_LH_ENABLE = "1";
+    XRT_COMPOSITOR_COMPUTE = "1";
+    # NVIDIA wired-HMD mitigation
+    XRT_COMPOSITOR_USE_PRESENT_WAIT = "1";
+    U_PACING_COMP_TIME_FRACTION_PERCENT = "90";
+    # U_PACING_COMP_MIN_TIME_MS = "10";   # optional
+  };  
+
+  #services.monado.package =
+ #   with pkgs;
+ #   monado.overrideAttrs (
+ #     finalAttrs: previousAttrs: {
+ #       src = fetchFromGitLab {
+ #         domain = "gitlab.freedesktop.org";
+ #         owner = "thaytan";
+ #         repo = "monado";
+ #         rev = "dev-constellation-controller-tracking";
+ #         hash = "sha256-o9JI2vCuDHEI6MNIWjbw7HGUBsnRQo58AUtDw1XUgw8=";
+ #       };
+#
+#        patches = [ ];
+#      }
+#    );
 
 
 
