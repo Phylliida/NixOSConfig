@@ -19,13 +19,15 @@ let
 in
 {
 
+  system.stateVersion = "25.05";
+
   imports =
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
       ./customPackages/flatpack.nix
     ];
 
-
+  hardware.steam-hardware.enable = true;
 
   nixpkgs.overlays = [
     # 1) Apply XR overlay first
@@ -33,6 +35,9 @@ in
 
     # 2) Then override monado from that result
     (final: prev: {
+
+
+
       monado = prev.monado.overrideAttrs (old: let
         # Pin to a specific commit you want:
     #    srcGit = prev.fetchFromGitLab {
@@ -75,7 +80,6 @@ in
 
 
      })
-
 
 
   ];
@@ -336,6 +340,7 @@ SUBSYSTEM=="hidraw", ATTRS{idVendor}=="35bd", ATTRS{idProduct}=="0202", MODE="06
    libsurvive
    openhmd
    monado-vulkan-layers
+   opencomposite
 
 
    #wayvr-dashboard
@@ -387,6 +392,25 @@ SUBSYSTEM=="hidraw", ATTRS{idVendor}=="35bd", ATTRS{idProduct}=="0202", MODE="06
    wivrn
    wlx-overlay-s
    xrizer
+
+
+    	    (monado.overrideAttrs (oldAttrs: rec {
+	
+	      src = fetchFromGitLab {
+	        domain = "gitlab.freedesktop.org";
+	        owner = "monado";
+	        repo = "monado";
+	        rev = "5c137fe28b232fe460f9b03defa7749adc32ee48";
+	        hash = "sha256-4P/ejRAitrYn8hXZPaDOcx27utfm+aVLjtqL6JxZYAg=";
+	      };
+	      patches = [];
+	      #   (pkgs.fetchpatch {
+	      #     url = "https://gitlab.freedesktop.org/monado/monado/-/merge_requests/2425.diff";
+	      #     sha256 = "0hhfk86z1yq5gn9bzqpv46nb9bdx3fygi55b4ayzmnamva7rcajp";
+	      #   })
+	      # ];
+	    }))
+
 
    #(builtins.getFlake "gitlab:monado/monado?host=gitlab.freedesktop.org").packages.${pkgs.system}.default
 
@@ -546,6 +570,12 @@ SUBSYSTEM=="hidraw", ATTRS{idVendor}=="35bd", ATTRS{idProduct}=="0202", MODE="06
     highPriority = true;
   };
 
+  #services.wivrn = {
+  #  enable = true;
+  #  openFirewall = true;
+  #  defaultRuntime = true;
+  #};
+
   systemd.user.services.monado.environment = {
     STEAMVR_LH_ENABLE = "1";
     XRT_COMPOSITOR_COMPUTE = "1";
@@ -570,7 +600,6 @@ SUBSYSTEM=="hidraw", ATTRS{idVendor}=="35bd", ATTRS{idProduct}=="0202", MODE="06
 #        patches = [ ];
 #      }
 #    );
-
 
 
 }
