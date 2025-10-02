@@ -6,6 +6,8 @@
 
 let
   nixpkgs-xr = import (builtins.fetchTarball "https://github.com/nix-community/nixpkgs-xr/archive/main.tar.gz");
+  monadoFlakeUri = "git+https://gitlab.freedesktop.org/monado/monado?rev=fb199971ef9ff40976ee91e890a48e6a5f57f0da";
+  monadoFlake = builtins.getFlake monadoFlakeUri;
   pinned = config.boot.kernelPackages.nvidiaPackages.mkDriver {
     version = "580.82.09";
 
@@ -26,6 +28,14 @@ in
     ];
 
 
+  programs.virt-manager.enable = true;
+
+  users.groups.libvirtd.members = ["bepis"];
+
+  virtualisation.libvirtd.enable = true;
+
+  virtualisation.spiceUSBRedirection.enable = true;
+
 
   nixpkgs.overlays = [
     # 1) Apply XR overlay first
@@ -33,19 +43,25 @@ in
 
     # 2) Then override monado from that result
     (final: prev: {
-      monado = prev.monado.overrideAttrs (old: let
+        monado = prev.monado.overrideAttrs (old:
+	# let
         # Pin to a specific commit you want:
-    #    srcGit = prev.fetchFromGitLab {
-    #      domain = "gitlab.freedesktop.org";
-    #      owner  = "monado";
-    #      repo   = "monado";
-    #      rev    = "eaa3797ec8b67911429b2f05789c63fa7bed7906"; # <- commit SHA
-    #      hash   = "sha256:rVP8jK4iDXdd0DqrUxCz7EWDqm2xqcdor0+BWoVuxos=";                        # <- content hash
-    #    };
-      in {
-    #    # keep XR overlay’s settings, plus our tweaks
-    #    version = "git-${builtins.substring 0 8 srcGit.rev}";
-    #    src = srcGit;
+        #srcGit = prev.fetchFromGitLab {
+        #  domain = "gitlab.freedesktop.org";
+        #  owner  = "monado";
+        #  repo   = "monado";
+        #  rev    = "fb199971ef9ff40976ee91e890a48e6a5f57f0da"; # <- commit SHA
+        #  hash   = "sha256:rVP8jK4iDXdd0DqrUxCz7EWDqm2xqcdor0+BWoVuxos=";                        # <- content hash
+        #};
+      #in 
+	{
+        package =
+             (monadoFlake.packages.${pkgs.system}.default);
+   #    # keep XR overlay’s settings, plus our tweaks
+
+       # version = "git-${builtins.substring 0 8 srcGit.rev}";
+      #  src = srcGit;
+
 
         # likely not needed on newer commits
         #patches = [ ];
@@ -336,7 +352,7 @@ SUBSYSTEM=="hidraw", ATTRS{idVendor}=="35bd", ATTRS{idProduct}=="0202", MODE="06
    libsurvive
    openhmd
    monado-vulkan-layers
-   opencomposite
+   #opencomposite
 
 
    #wayvr-dashboard
@@ -388,6 +404,36 @@ SUBSYSTEM=="hidraw", ATTRS{idVendor}=="35bd", ATTRS{idProduct}=="0202", MODE="06
    wivrn
    wlx-overlay-s
    xrizer
+
+
+  # emulation
+  virt-manager
+    virt-viewer
+    spice 
+    spice-gtk
+    spice-protocol
+    win-virtio
+    win-spice
+    #monado
+   	
+#	    (monado.overrideAttrs (oldAttrs: rec {
+#	#
+#	      src = fetchFromGitLab {
+#	        domain = "gitlab.freedesktop.org";
+#	        owner = "monado";
+#	        repo = "monado";
+#	        rev = "fb199971ef9ff40976ee91e890a48e6a5f57f0da";
+#	        hash = "sha256-4P/ejRAitrYn8hXZPaDOcx27utfm+aVLjtqL6JxZYAg=";
+#	      };
+#	      patches = [];
+	      #   (pkgs.fetchpatch {
+              #     url = "https://gitlab.freedesktop.org/monado/monado/-/merge_requests/2425.diff";
+	      #     sha256 = "0hhfk86z1yq5gn9bzqpv46nb9bdx3fygi55b4ayzmnamva7rcajp";
+	      #   })
+	      # ];
+#	    }))
+
+  
 
    #(builtins.getFlake "gitlab:monado/monado?host=gitlab.freedesktop.org").packages.${pkgs.system}.default
 
