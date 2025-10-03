@@ -27,7 +27,7 @@ in
       ./customPackages/flatpack.nix
     ];
 
-
+  
   programs.virt-manager.enable = true;
 
   users.groups.libvirtd.members = ["bepis"];
@@ -41,8 +41,19 @@ in
     # 1) Apply XR overlay first
     nixpkgs-xr.overlays.default
 
+   
+
     # 2) Then override monado from that result
     (final: prev: {
+        #xrizer = prev.xrizer.overrideAttrs (old: {
+	#   src = prev.fetchFromGitHub {
+	#     owner = "Supreeeme";
+        #     repo = "xrizer";
+        #     rev = "bb7e2e5697479d1b7786540155132becfc530cea";
+        #     hash = "sha256-uAUmitKGy9mGGSRti4LY6objKOPJ/2lh3vtRPmpClVY=";
+        #   };
+	#});
+
         monado = prev.monado.overrideAttrs (old:
 	# let
         # Pin to a specific commit you want:
@@ -535,7 +546,7 @@ SUBSYSTEM=="hidraw", ATTRS{idVendor}=="35bd", ATTRS{idProduct}=="0202", MODE="06
   # vr
 
 
-
+  hardware.steam-hardware.enable = true;
   hardware.nvidia = {
     
     modesetting.enable = true;
