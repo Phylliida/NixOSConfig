@@ -6,6 +6,7 @@
 
 let
   nixpkgs-xr = import (builtins.fetchTarball "https://github.com/nix-community/nixpkgs-xr/archive/main.tar.gz");
+#  comfyFlake = builtins.getFlake "github:dyscorv/nix-comfyui";
   monadoFlakeUri = "git+https://gitlab.freedesktop.org/monado/monado?rev=fb199971ef9ff40976ee91e890a48e6a5f57f0da";
   monadoFlake = builtins.getFlake monadoFlakeUri;
   pinned = config.boot.kernelPackages.nvidiaPackages.mkDriver {
@@ -25,6 +26,7 @@ in
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
       ./customPackages/flatpack.nix
+      ./customPackages/copyparty.nix
     ];
 
   
@@ -40,22 +42,42 @@ in
   nixpkgs.overlays = [
     # 1) Apply XR overlay first
     nixpkgs-xr.overlays.default
-
+#    comfyFlake.overlays.default
    
 
     # 2) Then override monado from that result
     (final: prev: {
+        python3Packages = prev.python3Packages // {
+        diffusers = prev.python3Packages.diffusers.overridePythonAttrs (old: rec {
+          pname = "diffusers";
+          version = "2025-03-05-git";   # anything meaningful (date/commit)
+
+          src = prev.fetchFromGitHub {
+            owner = "huggingface";
+            repo  = "diffusers";
+            rev   = "a519272d97f011332588e1aaa73d32952d80f3f5";   # exact commit hash
+            hash  = "sha256-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX=";
+          };
+
+          # inherit everything else from the existing definition
+          # e.g. propagatedBuildInputs, patches, etc.
+          format = old.format;
+          propagatedBuildInputs = old.propagatedBuildInputs;
+          nativeBuildInputs     = old.nativeBuildInputs;
+          meta                  = old.meta // { version = version; };
+        });
+      };
         #xrizer = prev.xrizer.overrideAttrs (old: {
-	#   src = prev.fetchFromGitHub {
-	#     owner = "Supreeeme";
+        #   src = prev.fetchFromGitHub {
+        #     owner = "Supreeeme";
         #     repo = "xrizer";
         #     rev = "bb7e2e5697479d1b7786540155132becfc530cea";
         #     hash = "sha256-uAUmitKGy9mGGSRti4LY6objKOPJ/2lh3vtRPmpClVY=";
         #   };
-	#});
+        #});
 
         monado = prev.monado.overrideAttrs (old:
-	# let
+        # let
         # Pin to a specific commit you want:
         #srcGit = prev.fetchFromGitLab {
         #  domain = "gitlab.freedesktop.org";
@@ -65,7 +87,7 @@ in
         #  hash   = "sha256:rVP8jK4iDXdd0DqrUxCz7EWDqm2xqcdor0+BWoVuxos=";                        # <- content hash
         #};
       #in 
-	{
+        {
         package =
              (monadoFlake.packages.${pkgs.system}.default);
    #    # keep XR overlay’s settings, plus our tweaks
@@ -138,7 +160,7 @@ SUBSYSTEM=="hidraw", ATTRS{idVendor}=="35bd", ATTRS{idProduct}=="0202", MODE="06
 
 
   virtualisation.docker.enable = true; 
-  networking.firewall.allowedTCPPorts = [ 5001 8096 ];  
+  networking.firewall.allowedTCPPorts = [ 5001 8096 3211 53682 12345 11155 ];  
     
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
@@ -264,45 +286,49 @@ SUBSYSTEM=="hidraw", ATTRS{idVendor}=="35bd", ATTRS{idProduct}=="0202", MODE="06
     openscad
     nodejs_24
     (pkgs.callPackage /etc/nixos/customPackages/koboldcpp.nix {
-	cublasSupport = true;
-	vulkanSupport = false;
+        cublasSupport = true;
+        vulkanSupport = true;
     })
 
 
     prismlauncher
-	procps
-	gnumake
-	m4
-	gperf
-	unzip
-	cudaPackages.cudatoolkit
-	cudaPackages.nccl
-	cudaPackages.cudnn
-	cudaPackages.cutensor
-	cudaPackages.libcublas
-	cudaPackages.cuda_nvcc
-	cudaPackages.libcusparse
-	cudaPackages.libcusolver
-	cudaPackages.cuda_cudart
-	cudaPackages.cuda_opencl
+        procps
+        gnumake
+        m4
+        qbittorrent
+        rclone
+        cloudflared
+        gperf
+        unzip
+        cudaPackages.cudatoolkit
+        cudaPackages.nccl
+        cudaPackages.cudnn
+        cudaPackages.cutensor
+        cudaPackages.libcublas
+        cudaPackages.cuda_nvcc
+        cudaPackages.libcusparse
+        cudaPackages.libcusolver
+        cudaPackages.cuda_cudart
+        cudaPackages.cuda_opencl
         cudaPackages.libcublas
         cudaPackages.cuda_nvcc
         cudaPackages.cuda_cudart
         cudaPackages.cuda_cccl
 
-	clblast
-	libGLU libGL
-	xorg.libXi
-	xorg.libXmu
-	freeglut
-	xorg.libXext
-	xorg.libX11
-	xorg.libXv
-	xorg.libXrandr
-	zlib
-	ncurses5
-	stdenv.cc
-	binutils
+        clblast
+        libGLU libGL
+        xorg.libXi
+        xorg.libXmu
+        freeglut
+        xorg.libXext
+        xorg.libX11
+        xorg.libXv
+        xorg.libXrandr
+        zlib
+        ncurses5
+        stdenv.cc
+        binutils
+        docker-compose
     micro
     ferium
     xclip
@@ -320,15 +346,23 @@ SUBSYSTEM=="hidraw", ATTRS{idVendor}=="35bd", ATTRS{idProduct}=="0202", MODE="06
     llama-cpp
     nix-ld
     uv
-	
-	
+
+
     
-	# python
-	python312
-	python312Packages.torch
-	python312Packages.transformers
-	python312Packages.diffusers
-	 
+        # python
+        (python3.withPackages (python-pkgs: with python-pkgs; [
+          torch-bin
+          transformers
+          diffusers
+          httpx
+          qbittorrent-api
+          pyarrow
+          pandas
+          requests
+          ijson
+          mistral-common
+        ]))
+         
     # vulkan
     glfw
     freetype
@@ -425,24 +459,37 @@ SUBSYSTEM=="hidraw", ATTRS{idVendor}=="35bd", ATTRS{idProduct}=="0202", MODE="06
     spice-protocol
     win-virtio
     win-spice
+
+  # comfyui
+ #   (pkgs.comfyuiPackages.comfyui.override {
+ #     extensions = with pkgs.comfyuiPackages.extensions; [
+ #       acly-inpaint
+ #       acly-tooling
+ #       fannovel16-controlnet-aux
+ #        city96-gguf
+     
+ #     ];
+ #     commandLineArgs = [ "--preview-method" "auto" ];
+ #   })
+ #   comfyuiPackages.krita-with-extensions
     #monado
-   	
-#	    (monado.overrideAttrs (oldAttrs: rec {
-#	#
-#	      src = fetchFromGitLab {
-#	        domain = "gitlab.freedesktop.org";
-#	        owner = "monado";
-#	        repo = "monado";
-#	        rev = "fb199971ef9ff40976ee91e890a48e6a5f57f0da";
-#	        hash = "sha256-4P/ejRAitrYn8hXZPaDOcx27utfm+aVLjtqL6JxZYAg=";
-#	      };
-#	      patches = [];
-	      #   (pkgs.fetchpatch {
+   
+#           (monado.overrideAttrs (oldAttrs: rec {
+#       #
+#             src = fetchFromGitLab {
+#               domain = "gitlab.freedesktop.org";
+#               owner = "monado";
+#               repo = "monado";
+#               rev = "fb199971ef9ff40976ee91e890a48e6a5f57f0da";
+#               hash = "sha256-4P/ejRAitrYn8hXZPaDOcx27utfm+aVLjtqL6JxZYAg=";
+#             };
+#             patches = [];
+              #   (pkgs.fetchpatch {
               #     url = "https://gitlab.freedesktop.org/monado/monado/-/merge_requests/2425.diff";
-	      #     sha256 = "0hhfk86z1yq5gn9bzqpv46nb9bdx3fygi55b4ayzmnamva7rcajp";
-	      #   })
-	      # ];
-#	    }))
+              #     sha256 = "0hhfk86z1yq5gn9bzqpv46nb9bdx3fygi55b4ayzmnamva7rcajp";
+              #   })
+              # ];
+#           }))
 
   
 
@@ -629,6 +676,17 @@ SUBSYSTEM=="hidraw", ATTRS{idVendor}=="35bd", ATTRS{idProduct}=="0202", MODE="06
 #      }
 #    );
 
-
+    services.cloudflared = {
+    enable = true;
+    tunnels = {
+      "copyparty-tunnel" = {
+        credentialsFile = "/home/bepis/.cloudflared/407a06a1-826a-4e3f-80be-edf57d67e03c.json";
+        ingress = {
+            "*.phylliidaassets.org" = "http://localhost:3211";
+        };
+        default = "http_status:404";
+      };
+    };
+  };
 
 }
